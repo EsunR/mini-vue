@@ -1,6 +1,6 @@
 class ReactiveEffect {
   private _fn: Function;
-  constructor(fn: Function) {
+  constructor(fn: Function, public scheduler?: Function) {
     this._fn = fn;
   }
   run() {
@@ -20,7 +20,10 @@ type DepsMap = Map<any, DepSet>;
 type DepSet = Set<ReactiveEffect>;
 const targetMap: TargetMap = new Map();
 
-export function track(target, key) {
+/**
+ * 在 get 操作时收集依赖
+ */
+export function track(target: any, key: string | symbol) {
   // 获取到当前 target（原始对象）在 targetMap 中的依赖集合
   let depsMap = targetMap.get(target);
   if (!depsMap) {
@@ -35,7 +38,10 @@ export function track(target, key) {
   dep.add(activeEffect);
 }
 
-export function trigger(target, key) {
+/**
+ * 在 set 操作时触发依赖
+ */
+export function trigger(target: any, key: string | symbol) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
 
@@ -43,14 +49,22 @@ export function trigger(target, key) {
   if (!dep) return;
 
   dep.forEach((effect: ReactiveEffect) => {
-    effect.run();
+    if (effect.scheduler) {
+      effect.scheduler();
+    } else {
+      effect.run();
+    }
   });
 }
 
 let activeEffect: ReactiveEffect;
 
-export function effect(fn: Function) {
-  const _effect = new ReactiveEffect(fn);
+/**
+ * 创建一个响应式函数
+ */
+export function effect(fn: Function, options: { scheduler?: Function } = {}) {
+  const { scheduler } = options || {};
+  const _effect = new ReactiveEffect(fn, scheduler);
   _effect.run();
   return _effect.run.bind(_effect);
 }
