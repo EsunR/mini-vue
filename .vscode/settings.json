@@ -1,3 +1,9 @@
 {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "testing.openTesting": "neverOpen",
+    "jest.outputConfig": {
+        "revealOn": "run",
+        "revealWithFocus": "none",
+        "clearOnRun": "none"
+    }
 }
