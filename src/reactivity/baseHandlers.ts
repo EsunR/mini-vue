@@ -1,5 +1,6 @@
+import { isObject } from "../shared";
 import { track, trigger } from "./effect";
-import { ReactiveFlags } from "./reactive";
+import { ReactiveFlags, reactive, readonly } from "./reactive";
 
 function createGetter(isReadonly = false): ProxyHandler<any>["get"] {
   return function get(target, key) {
@@ -13,6 +14,12 @@ function createGetter(isReadonly = false): ProxyHandler<any>["get"] {
      * ES6 Proxy里面为什么要用Reflect: https://www.zhihu.com/question/460133198
      */
     const res = Reflect.get(target, key);
+
+    // 相比于 vue2，vue3 采用懒加载，当访问响应式对象时，再去构造下一个Proxy(res, { getter })
+    if (isObject(res)) {
+      return isReadonly ? readonly(res) : reactive(res);
+    }
+
     if (!isReadonly) {
       // 依赖收集
       track(target, key);

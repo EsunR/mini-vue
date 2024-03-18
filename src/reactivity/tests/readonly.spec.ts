@@ -7,6 +7,8 @@ describe("readonly", () => {
     expect(observed).not.toBe(original);
     expect(isReadonly(observed)).toBe(true);
     expect(observed.nested.foo).toBe(1);
+    expect(isReadonly(observed.nested)).toBe(true);
+    expect(isReadonly(original.nested)).toBe(false);
   })
 
   it("happy path", () => {
