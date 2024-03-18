@@ -1,7 +1,14 @@
 import { track, trigger } from "./effect";
+import { ReactiveFlags } from "./reactive";
 
 function createGetter(isReadonly = false): ProxyHandler<any>["get"] {
   return function get(target, key) {
+    if (key === ReactiveFlags.IS_REACTIVE) {
+      return !isReadonly;
+    } else if (key === ReactiveFlags.IS_READONLY) {
+      return isReadonly;
+    }
+
     /**
      * ES6 Proxy里面为什么要用Reflect: https://www.zhihu.com/question/460133198
      */

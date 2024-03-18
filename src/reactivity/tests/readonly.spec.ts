@@ -1,6 +1,14 @@
-import { readonly } from "../reactive";
+import { readonly, isReadonly } from "../reactive";
 
 describe("readonly", () => {
+  it("should make nested values readonly", () => {
+    const original = { nested: { foo: 1 } };
+    const observed = readonly(original);
+    expect(observed).not.toBe(original);
+    expect(isReadonly(observed)).toBe(true);
+    expect(observed.nested.foo).toBe(1);
+  })
+
   it("happy path", () => {
     const original = { foo: 1 };
     const observed = readonly(original);
