@@ -35,7 +35,7 @@ describe("effect", () => {
     /**
      * 1. 通过 effect 的第一个参数传入 fn，第二个参数传入一个 scheduler 函数
      * 2. effect 第一次执行的时候仍会执行 fn
-     * 3. 当响应式对象发生 set 操作时，不会立即执行 fn，而是调用 scheduler 函数
+     * 3. 当响应式对象发生 set 操作时，不会执行 fn，而是调用 scheduler 函数
      * 4. 如果手动执行 runner 函数，会立即执行 fn
      */
     let dummy;
@@ -72,8 +72,8 @@ describe("effect", () => {
     obj.prop = 2;
     expect(dummy).toBe(2);
     stop(runner);
-    obj.prop = 3;
-    // obj.prop++;
+    // obj.prop = 3;
+    obj.prop++;
     expect(dummy).toBe(2);
 
     // stopped effect should still be manually callable

@@ -11,6 +11,11 @@ type TargetMap = Map<any, DepsMap>;
 type DepsMap = Map<string | symbol, DepSet>;
 type DepSet = Set<ReactiveEffect>;
 
+/** 标记当前需要依赖收集的 effect */
+let activeEffect: ReactiveEffect | undefined = undefined;
+/** 用于在 stop 后不再重复收集依赖 */
+let shouldTrack = false;
+
 function cleanupEffect(effect: ReactiveEffect) {
   effect.deps.forEach((depSet) => {
     depSet.delete(effect);
@@ -27,8 +32,19 @@ class ReactiveEffect {
     this._fn = fn;
   }
   run() {
+    if (!this.active) {
+      return this._fn();
+    }
+
     activeEffect = this;
-    return this._fn();
+    shouldTrack = true;
+
+    const result = this._fn();
+
+    // Reset
+    shouldTrack = false;
+
+    return result;
   }
   stop() {
     if (this.active) {
@@ -44,9 +60,18 @@ class ReactiveEffect {
 const targetMap: TargetMap = new Map();
 
 /**
+ * 判断当前是否需要收集依赖
+ */
+function isTracking() {
+  return shouldTrack && activeEffect !== undefined;
+}
+
+/**
  * 在 get 操作时收集依赖
  */
 export function track(target: any, key: string | symbol) {
+  if (!isTracking()) return;
+
   // 获取到当前 target（原始对象）在 targetMap 中的依赖集合
   let depsMap = targetMap.get(target);
   if (!depsMap) {
@@ -58,10 +83,8 @@ export function track(target: any, key: string | symbol) {
     depsMap.set(key, (depSet = new Set()));
   }
 
-  if (!activeEffect) return;
-
   // 已经收集过依赖的话就不再重复收集
-  if (!depSet.has(activeEffect)) {
+  if (activeEffect && !depSet.has(activeEffect)) {
     depSet.add(activeEffect);
     activeEffect.deps.push(depSet);
   }
@@ -85,8 +108,6 @@ export function trigger(target: any, key: string | symbol) {
     }
   });
 }
-
-let activeEffect: ReactiveEffect | null = null;
 
 /**
  * 创建一个响应式函数
