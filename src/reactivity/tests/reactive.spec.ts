@@ -1,4 +1,4 @@
-import { isReactive, reactive } from "../reactive";
+import { isProxy, isReactive, reactive } from "../reactive";
 
 describe("reactive", () => {
   it("happy path", () => {
@@ -8,6 +8,7 @@ describe("reactive", () => {
     expect(observed.foo).toBe(1);
     expect(isReactive(observed)).toBe(true);
     expect(isReactive(original)).toBe(false);
+    expect(isProxy(observed)).toBe(true);
   });
 
   test("nest reactive", () => {
@@ -22,7 +23,7 @@ describe("reactive", () => {
     expect(isReactive(observed.array)).toBe(true);
     expect(isReactive(observed.array[0])).toBe(true);
     // 添加新属性时同样会被转化为响应式
-    observed.nested.loo = {val: 1};
+    observed.nested.loo = { val: 1 };
     expect(isReactive(observed.nested.loo)).toBe(true);
   });
 });
