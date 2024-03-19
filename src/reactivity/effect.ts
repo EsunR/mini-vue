@@ -7,10 +7,11 @@ import { extend } from "../shared";
  * Dep: Set<依赖函数>
  * ![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/202402292136224.png)
  */
-type TargetMap = Map<any, DepsMap>;
-type DepsMap = Map<string | symbol, DepSet>;
-type DepSet = Set<ReactiveEffect>;
+export type TargetMap = Map<any, DepsMap>;
+export type DepsMap = Map<string | symbol, DepSet>;
+export type DepSet = Set<ReactiveEffect>;
 
+const targetMap: TargetMap = new Map();
 /** 标记当前需要依赖收集的 effect */
 let activeEffect: ReactiveEffect | undefined = undefined;
 /** 用于在 stop 后不再重复收集依赖 */
@@ -57,17 +58,17 @@ class ReactiveEffect {
   }
 }
 
-const targetMap: TargetMap = new Map();
-
 /**
  * 判断当前是否需要收集依赖
  */
-function isTracking() {
+export function isTracking() {
   return shouldTrack && activeEffect !== undefined;
 }
 
 /**
  * 在 get 操作时收集依赖
+ * @param target 原始对象
+ * @param key 属性值
  */
 export function track(target: any, key: string | symbol) {
   if (!isTracking()) return;
@@ -83,6 +84,13 @@ export function track(target: any, key: string | symbol) {
     depsMap.set(key, (depSet = new Set()));
   }
 
+  trackEffects(depSet);
+}
+
+/**
+ * 将 effect 收集到 depSet 依赖队列中
+ */
+export function trackEffects(depSet: DepSet) {
   // 已经收集过依赖的话就不再重复收集
   if (activeEffect && !depSet.has(activeEffect)) {
     depSet.add(activeEffect);
@@ -92,15 +100,24 @@ export function track(target: any, key: string | symbol) {
 
 /**
  * 在 set 操作时触发依赖
+ * @param target 原始对象
+ * @param key 属性值
  */
 export function trigger(target: any, key: string | symbol) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
 
-  const dep = depsMap.get(key);
-  if (!dep) return;
+  const depSet = depsMap.get(key);
+  if (!depSet) return;
 
-  dep.forEach((effect: ReactiveEffect) => {
+  triggerEffects(depSet);
+}
+
+/**
+ * 触发 depSet 中的 effect
+ */
+export function triggerEffects(depSet: DepSet) {
+  depSet.forEach((effect: ReactiveEffect) => {
     if (effect.scheduler) {
       effect.scheduler();
     } else {

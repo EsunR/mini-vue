@@ -9,14 +9,22 @@ describe("effect", () => {
 
     // track
     let nextAge;
+    let called = 0
     effect(() => {
       nextAge = user.age + 1;
+      called++
     });
+    expect(called).toBe(1)
     expect(nextAge).toBe(11);
 
     // update
     user.age++;
     expect(nextAge).toBe(12);
+    expect(called).toBe(2)
+
+    user.age = 11;
+    expect(nextAge).toBe(12);
+    expect(called).toBe(3)
   });
 
   it("should return runner when call effect", () => {

@@ -1,5 +1,9 @@
 export const extend = Object.assign;
 
-export const isObject = (val: any) => {
+export function isObject(val: any) {
   return val !== null && typeof val === "object";
-};
+}
+
+export function hasChanged(oldValue: any, newValue: any) {
+  return !Object.is(oldValue, newValue);
+}
