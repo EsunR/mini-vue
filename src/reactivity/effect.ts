@@ -14,7 +14,7 @@ export type DepSet = Set<ReactiveEffect>;
 const targetMap: TargetMap = new Map();
 /** 标记当前需要依赖收集的 effect */
 let activeEffect: ReactiveEffect | undefined = undefined;
-/** 用于在 stop 后不再重复收集依赖 */
+/** 用于在调用了 effect 的 stop 后，在此触发依赖值的 get 时不再重复收集 */
 let shouldTrack = false;
 
 function cleanupEffect(effect: ReactiveEffect) {
@@ -24,7 +24,15 @@ function cleanupEffect(effect: ReactiveEffect) {
     effect.deps.length = 0;
 }
 
-class ReactiveEffect {
+/**
+ * Effect 类，其拥有以下特性：
+ * 1. 可以通过 run 方法执行传入的函数，当依赖值发生变化时，会重新执行 fn
+ * 2. 调用 stop 方法后，不再被收集依赖
+ * 3. 构建类时候可以传入一个 scheduler 函数来控制依赖触发时的行为
+ * 4. 当拥有 scheduler 函数时，当依赖值发生变化时不会执行 fn，而是调用 scheduler 函数
+ * 5. 其拥有一个 deps 数组，指向了存放当前 effect 的 depSet 集合
+ */
+export class ReactiveEffect {
     private _fn: Function;
     deps: DepSet[] = [];
     active = true;
@@ -39,15 +47,11 @@ class ReactiveEffect {
         if (!this.active) {
             return this._fn();
         }
-
         activeEffect = this;
         shouldTrack = true;
-
         const result = this._fn();
-
         // Reset
         shouldTrack = false;
-
         return result;
     }
     stop() {
