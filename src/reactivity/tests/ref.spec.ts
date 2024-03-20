@@ -1,6 +1,6 @@
 import { effect } from "../effect";
 import { reactive } from "../reactive";
-import { isRef, ref, unref } from "../ref";
+import { isRef, proxyRefs, ref, unref } from "../ref";
 
 describe("ref", () => {
   it("happy path", () => {
@@ -54,5 +54,26 @@ describe("ref", () => {
     const a = ref(1);
     expect(unref(a)).toBe(1);
     expect(unref(1)).toBe(1);
+  });
+
+  it("proxyRefs", () => {
+    const user = {
+      age: ref(10),
+      name: "xiaohong",
+    };
+    const proxyUser = proxyRefs(user);
+    expect(user.age.value).toBe(10);
+    expect(proxyUser.age).toBe(10);
+    expect(proxyUser.name).toBe("xiaohong");
+
+    // 如果赋值一个普通值，则修改 Ref 对象的 value
+    proxyUser.age = 20;
+    expect(user.age.value).toBe(20);
+    expect(proxyUser.age).toBe(20);
+
+    // 如果赋值一个 Ref 对象，则直接替换
+    proxyUser.age = ref(30);
+    expect(user.age.value).toBe(30);
+    expect(proxyUser.age).toBe(30);
   });
 });

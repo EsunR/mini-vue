@@ -53,3 +53,21 @@ export function isRef(ref: any) {
 export function unref<T>(ref: MaybeRef<T>): T {
   return isRef(ref) ? (ref as Ref<T>).value : (ref as T);
 }
+
+export function proxyRefs(objectWithRefs: any) {
+  return new Proxy(objectWithRefs, {
+    get(target, key) {
+      return unref(Reflect.get(target, key));
+    },
+    set(target, key, value) {
+      // 如果当前值是 Ref 且新值不是 Ref 对象，则将当前 Ref 的 value 设置为新值
+      if (isRef(target[key]) && !isRef(value)) {
+        return (target[key].value = value);
+      } 
+      // 否则，直接设置新值
+      else {
+        return Reflect.set(target, key, value);
+      }
+    },
+  });
+}
