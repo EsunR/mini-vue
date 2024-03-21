@@ -6,6 +6,8 @@ export function render(vnode, container: HTMLElement) {
 }
 
 function patch(vnode, container: HTMLElement) {
+    // TODO: 区分是组件还是普通元素
+    // processElement(vnode, container);
     processComponent(vnode, container);
 }
 
