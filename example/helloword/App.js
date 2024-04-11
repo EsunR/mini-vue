@@ -1,7 +1,9 @@
 import { h } from "../../lib/mini-vue.esm.js";
 
+window.self = null;
 export const App = {
     render() {
+        window.self = this;
         return h(
             "div",
             {
@@ -21,8 +23,9 @@ export const App = {
                     {
                         class: ["blue"],
                     },
-                    "this is your message: xxx",
+                    "this is your message: " + this.msg,
                 ),
+                h(SubComponent),
             ],
         );
     },
@@ -30,5 +33,14 @@ export const App = {
         return {
             msg: "mini-vue",
         };
+    },
+};
+
+const SubComponent = {
+    render() {
+        return h("div", {}, "SubComponent");
+    },
+    setup() {
+        return {};
     },
 };
