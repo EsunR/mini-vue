@@ -1,6 +1,6 @@
 # 1. 源码结构介绍
 
-![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/202402261940241.png)
+![202402261940241.png|754](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/202402261940241.png)
 
 > compiler-sfc：依赖 compiler-dom 和 compiler-core 将 template 转换为 render 函数
 
@@ -264,3 +264,210 @@ it("proxyRefs", () => {
 computed 对象通过构建一个 ReactiveEffect 对象来收集计算函数中的依赖值，构建 ReactiveEffect 对象时，会将计算函数（getter）作为 effect 的 fn，并在 scheduler 参数位传入一个将 `_dirty` 置为 `true` 的方法。这样就做到了如果依赖值发生变更时，再次获取 computed 对象的值时就重新触发计算函数。
 
 [代码实现](https://github.com/EsunR/mini-vue/commit/b2b6235336e36edbe7c119787685e66db8ddcc91)
+
+# 3. Runtime
+
+### 初始化 component 主流程
+
+在 Vue 项目的入口文件，我们会创建一个组件实例，并将其挂载到 DOM 元素上：
+
+```js
+const rootContainer = document.getElementById("app");
+createApp(App).mount(rootContainer);
+```
+
+初始化 component 的流程大体有以下几个要点：
+
+- `createApp` 方法执行完毕后调用返回的 `mount` 方法时，方法内会调用  `createVNode` 为组件创建一个 `vnode` 对象，然后执行 `render` 函数对组件进行渲染；
+- `render` 函数的渲染过程实际上就是将组件或者 Element 元素挂载到根元素或者父组件上的过程，在这个过程中会对组件进行实例化，并进行初始化组件的 props、slot、执行组件的 setup 函数等一系列行为，这一过程在 `setupComponent` 函数中执行；
+- 当一个 vnode 对象完成了 setup 阶段后，会执行 `setupRenderEffect` 函数，在该函数中，会拿到实例化的组件，并执行组件的 render 函数来获取到子树，然后再递归对子树进行 `patch`；
+
+函数调用栈如下：
+
+![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240409224504.jpg)
+
+代码：[21. 使用 rollup 打包库](https://github.com/EsunR/mini-vue/commit/0ee1e8c8f046d2f08de8a351df8e7f4c72cd44be)
+
+### 初始化 element
+
+在上一节中，我们已经完成了在执行 patch 阶段将 VNode 挂载到 Container 中时对 Component 类型的 VNode 的处理（`processComponent` 函数），但是在渲染过程中还要处理 Element 节点：
+
+```js
+// 这是一个 Element 节点
+h('div', { id: "root" }, "你好")
+
+// 这是一个 Component 节点
+h(VueComponent, { propsA: "prop value" }, [/** children */])
+```
+
+如果是 Element 节点，则 `VNode.type` 将会是一个 `string` 类型，然后通过 `processElement` 函数来将 Element 节点挂载到容器中。其过程如下：
+
+1. 使用 `createElement` 根据 `VNode.type` 创建 Element 元素；
+2. 将  `VNode.props` 作为节点的 attributes 进行绑定；
+3. 处理 Children：
+	1. 如果是文本，则直接作为 textContent 写入到 Element 中；
+	2. 如果是 VNode 数组或 VNode 对象，则对其递归调用 `patch`，patch 目标的 container 是当前元素；
+4. 使用 `append` 将 Element 挂载到 container 中。
+
+函数调用栈：
+
+![image.png|695](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240410002244.png)
+
+
+代码：[22. 实现初始化 element](https://github.com/EsunR/mini-vue/commit/b199fec90637e752865d7cea27d9c3c6fcf4568f)
+
+### 实现组件代理对象
+
+在执行组件的 `render` 函数时，可以通过 `this.xxx` 来获取组件 `setup` 函数中返回的 setupState 中的数据，比如：
+
+```js
+export const App = {
+    render() {
+        return h(
+            "div",
+            {
+                id: "root",
+            },
+            "this is your message: " + this.msg,
+        );
+    },
+    setup() {
+        return {
+            msg: "mini-vue",
+        };
+    },
+};
+```
+
+此外，我们还可以使用 `this` 来获取其他的值，比如当前组件的 Element 对象 `this.$el`，完整的组件实例上的属性可以参考 [官方文档](https://cn.vuejs.org/api/component-instance.html) 。
+
+为了实现一功能，Vue 在创建组件实例的时候需要在组件实例上创建一个 `proxy` 代理对象来获取各个属性值，同时在执行组件的 `render` 函数时将该 Proxy 对象作为 `this` 来执行，这一过程我们称为“创建组件的代理对象”，其流程如下：
+
+1. 在的 `setupStatefulComponent` 阶段创建代理对象；
+	- 代理对象中的 get 陷阱中来获取组件实例上的属性值，比如 setupState 的值；
+2. 在 `setupRenderEffect` 阶段执行组件 `render` 函数时，为 `render` 函数绑定 this 为上一步创建的代理对象；
+	- 此外，在这一步执行完 patch 后，组件子树的 `$el` 就是当前组件实例的 `$el`；
+
+![image.png](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240411223644.png)
+
+[23. 实现组件的代理对象](https://github.com/EsunR/mini-vue/commit/c0a188d1ea8c5ba40255aa574433642bd1d02666)
+
+### 实现 ShapeFlags
+
+在 Vue 中，VNode 的种类是多样的，在前面的实现中我们已经实现了组件 VNode、元素 VNode，VNode 的子节点（children）也分为数组子节点、文本子节点，在将来还会有更多的 VNode 类型。因此我们需要一种方法来标记当前的节点类型及其子节点的类型，方便我们在 patch 阶段根据不同的节点类型来执行不同的逻辑。
+
+假设我们在 VNode 上创建一个属性 `shapeFlag` 来标记当前节点的类型及其子节点（children）的类型，那么我们可能会设计为：
+
+```ts
+interface ShapeFlag {
+	/** 是否是 Element 类型的节点 */
+	element: boolean;
+	/** 是否是组件类型的节点 */
+	stateful_component: boolean;
+	/** 是否是文本类型的子节点 */
+	text_children: boolean;
+	/** 是否是数组类型的子节点 */
+	array_children: boolean;
+}
+```
+
+但是这样设计 `shapeFlag` 属性可能会越来越多，整体的解构越来越复杂，对性能也会产生影响。因此 Vue 采用了二进制的方式来标记节点的 `shapeFlag`，同时使用异或运算来判断节点是否属于哪种类型，这样 `shapeFlag` 的类型就可以优化为 number。接下来我们来具体讲一下 Vue 是如何处理 ShapeFlag 的：
+
+Javascript 使用 `|` 来进行或运算，使用 `&` 来进行与运算。在二进制的或运算中，如果计算位两者有一位为 `1`，则计算后的值即为 `1`：
+
+```
+         0001
+|(或运算) 0100
+——————————————
+         0101
+```
+
+在二进制的与运算中，如果计算位两者必须都为 `1`，计算值才能为 `1`，否则为 `0`：
+
+```
+         1001
+&(或运算) 1100
+——————————————
+         1000
+```
+
+如果我们将 `shapFlag` 使用二进制表示：
+
+- `0001` 可以标识 Element 类型的节点
+- `0010` 可以表示组件类节点
+- `0100` 可以标识文本类子节点
+- `1000` 可以表示数组类子节点
+
+一个 Element 类型的节点 `0001`，拥有文本类型的子节点 `0100` 就可以组合使用 `0101` 来标识，其他情况的组合类似，我们可以使用或运算来为节点“追加”类型属性：
+
+```
+如果一个节点既是 Element 类型，又拥有文本类行的节点：
+
+         0001
+|(或运算) 0100
+——————————————
+         0101
+```
+
+如果要判断节点是否拥有某个属性，就可以使用与运算（&）来判断，如果值为 0 则为没有命中。举例来说，如果要判断某个节点是否是 Element 类型，那么就可以将这个节点的 shapeType 与 `0001` 进行与运算：
+
+```
+         1010 (组件类型的节点、数组类型的子节点)
+&(与运算) 0001 (Element 类型的节点)
+——————————————
+         0000 (结果为 0，判断为 false)
+```
+
+```
+         1001 (Element 类型的节点、数组类型的子节点)
+&(与运算) 0001 (Element 类型的节点)
+——————————————
+         0001 (结果大于 0，判断为 true)
+```
+
+此外，Javascript 还有位移运算符 `>>` 右移、`<<` 左移，如 `2 << 1` 就是将十进制数字 `1` 转为二进制数字 `10` 后向左移动一位，变为 `100`，计算结果转为十进制即为 `4`：
+
+```
+          00000000000000000000000000000010
+<<2       00000000000000000000000000000100
+——————————————————————————————————————————
+转为十进制：                               4
+```
+
+因此在声明节点类型时，我们可以使用位移运算符来简明定义类型：
+
+```js
+export const enum ShapeFlags {
+    ELEMENT = 1, // 0001
+    STATEFUL_COMPONENT = 1 << 1, // 0010
+    TEXT_CHILDREN = 1 << 2, // 0100
+    ARRAY_CHILDREN = 1 << 3, // 1000
+}
+```
+
+[24. 实现 ShapeFlags](https://github.com/EsunR/mini-vue/commit/98c7df5295cfda744abd4cf4560e1365ef6a40c7 "24. 实现 ShapeFlags")
+
+### Element 节点的事件注册
+
+Vue 支持使用 `onXXX` 的方式来为组件添加事件，其在原生的 Element 节点上也是生效的，因此在 Element 节点的 `mountElement` 阶段中处理组件的 props 时，需要单独将事件 prop 提取出来并对其进行属性挂载：
+
+```js
+// 遍历 props 阶段
+for (const key in props) {
+	const val = props[key];
+	// 判断是否是事件属性
+	const isOn = (key: string) => /^on[A-Z]/.test(key);
+	if (isOn(key)) {
+		const event = key.slice(2).toLowerCase();
+		el.addEventListener(event, val);
+	}
+	// 其他 props 作为节点 attribute 处理
+	else {
+		el.setAttribute(key, val);
+	}
+}
+```
+
+[25. Element 节点的事件注册](https://github.com/EsunR/mini-vue/commit/7cb8f2bf5ca7343cc77f8ae23ba71d9aa0e5c183 "25. Element 节点的事件注册")
+
+### 实现组件 props 逻辑
