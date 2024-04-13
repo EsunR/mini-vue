@@ -9,6 +9,12 @@ export const App = {
             {
                 id: "root",
                 class: ["blue", "hard"],
+                onMousedown() {
+                    console.log("mousedown");
+                },
+                onMouseup() {
+                    console.log("mouseup");
+                },
             },
             [
                 h(
