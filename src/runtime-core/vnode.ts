@@ -1,8 +1,11 @@
+import { ShapeFlags } from "../shared/ShapeFlags";
+
 export interface VNode {
     type: any;
-    el: null | HTMLElement;
     props?: Record<string, any>;
     children?: any;
+    el: null | HTMLElement;
+    shapeFlag: number;
 }
 
 export function createVNode(
@@ -15,7 +18,22 @@ export function createVNode(
         props,
         children,
         el: null,
+        shapeFlag: getShapeFlag(type),
     };
 
+    if (typeof children === "string") {
+        vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
+    } else if (Array.isArray(children)) {
+        vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
+    } else {
+        vnode.shapeFlag |= ShapeFlags.STATEFUL_COMPONENT;
+    }
+
     return vnode;
+}
+
+export function getShapeFlag(type: any) {
+    return typeof type === "string"
+        ? ShapeFlags.ELEMENT
+        : ShapeFlags.STATEFUL_COMPONENT;
 }
