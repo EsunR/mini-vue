@@ -1,10 +1,18 @@
 import { h } from "../../lib//mini-vue.esm.js";
 
 export const Foo = {
-    render() {
-        return h("div", {}, "foo: " + this.count);
+    setup(props, { emit }) {
+        const onBtnClick = () => {
+            emit("btn-click", { count: props.count });
+        };
+
+        return {
+            onBtnClick,
+        };
     },
-    setup(props) {
-        console.log(props);
+    render() {
+        const foo = h("div", {}, "props.count: " + this.count);
+        const btn = h("button", { onClick: this.onBtnClick }, "click me");
+        return h("div", {}, [foo, btn]);
     },
 };
