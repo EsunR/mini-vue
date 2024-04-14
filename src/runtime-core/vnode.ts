@@ -1,9 +1,12 @@
 import { ShapeFlags } from "../shared/ShapeFlags";
+import { Component } from "./component";
+
+export type VNodeType = string | Component;
 
 export interface VNode {
-    type: any;
-    props?: Record<string, any>;
-    children?: any;
+    type: VNodeType;
+    props: Record<string, any>;
+    children: any;
     el: null | HTMLElement;
     shapeFlag: number;
 }
@@ -15,7 +18,7 @@ export function createVNode(
 ) {
     const vnode: VNode = {
         type,
-        props,
+        props: props || {},
         children,
         el: null,
         shapeFlag: getShapeFlag(type),

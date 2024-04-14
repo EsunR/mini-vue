@@ -29,7 +29,9 @@ function processElement(vnode: VNode, container: HTMLElement) {
 
 function mountElement(vnode: VNode, container: HTMLElement) {
     // 创建元素
-    const el = (vnode.el = document.createElement(vnode.type) as HTMLElement);
+    const el = (vnode.el = document.createElement(
+        vnode.type as string,
+    ) as HTMLElement);
 
     // 挂载子节点
     mountChildren(vnode, el);

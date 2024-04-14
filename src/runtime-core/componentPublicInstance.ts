@@ -1,3 +1,4 @@
+import { hasOwn } from "../shared/index";
 import { ComponentInstance } from "./component";
 
 const publicPropertiesMap = {
@@ -7,11 +8,13 @@ const publicPropertiesMap = {
 export const PublicInstanceProxyHandlers: ProxyHandler<{
     _: ComponentInstance;
 }> = {
-    get({ _: instance }, key) {
-        const { setupState } = instance;
-        // setupState
-        if (key in setupState) {
-            return setupState[key as string];
+    get({ _: instance }, key: string) {
+        const { setupState, props } = instance;
+
+        if (hasOwn(setupState, key)) {
+            return setupState[key];
+        } else if (hasOwn(props, key)) {
+            return props[key];
         }
 
         // public properties

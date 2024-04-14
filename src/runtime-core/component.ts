@@ -1,3 +1,5 @@
+import { shallowReadonly } from "../reactivity/reactive";
+import { initProps } from "./componentProps";
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance";
 import { VNode } from "./vnode";
 
@@ -6,7 +8,13 @@ export interface ComponentInstance {
     type: VNode["type"];
     proxy: Record<string, any>;
     setupState: Record<string, any>;
-    render?: Function;
+    render: Function;
+    props: VNode["props"];
+}
+
+export interface Component {
+    setup: (props: VNode["props"]) => any;
+    render: Function;
 }
 
 /**
@@ -18,6 +26,8 @@ export function createComponentInstance(vnode: VNode) {
         type: vnode.type,
         proxy: {},
         setupState: {},
+        render: () => {},
+        props: {},
     };
     return instance;
 }
@@ -30,7 +40,7 @@ export function createComponentInstance(vnode: VNode) {
  */
 export function setupComponent(instance: ComponentInstance) {
     // TODO:
-    // initProps();
+    initProps(instance, instance.vnode.props);
     // initSlots();
 
     setupStatefulComponent(instance);
@@ -45,10 +55,10 @@ function setupStatefulComponent(instance: ComponentInstance) {
     // ctx
     instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandlers);
 
-    const { setup } = Component;
+    const { setup } = Component as Component;
 
     if (setup) {
-        const setupResult = setup();
+        const setupResult = setup(shallowReadonly(instance.props));
         handleSetupResult(instance, setupResult);
     }
 }
@@ -73,6 +83,6 @@ function handleSetupResult(
  * 完成组件初始化，将组件的 render 函数挂载到组件实例上
  */
 function finishComponentSetup(instance: ComponentInstance) {
-    const Component = instance.type;
+    const Component = instance.type as Component;
     instance.render = Component.render;
 }

@@ -1,4 +1,5 @@
 import { h } from "../../lib/mini-vue.esm.js";
+import { Foo } from "./Foo.js";
 
 window.self = null;
 export const App = {
@@ -31,7 +32,7 @@ export const App = {
                     },
                     "this is your message: " + this.msg,
                 ),
-                h(SubComponent),
+                h(Foo, { count: 1 }),
             ],
         );
     },
@@ -39,14 +40,5 @@ export const App = {
         return {
             msg: "mini-vue",
         };
-    },
-};
-
-const SubComponent = {
-    render() {
-        return h("div", {}, "SubComponent");
-    },
-    setup() {
-        return {};
     },
 };
