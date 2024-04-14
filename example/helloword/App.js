@@ -10,34 +10,29 @@ export const App = {
             {
                 id: "root",
                 class: ["blue", "hard"],
-                // onMousedown() {
-                //     console.log("mousedown");
-                // },
-                // onMouseup() {
-                //     console.log("mouseup");
-                // },
             },
             [
-                // h(
-                //     "p",
-                //     {
-                //         class: ["red"],
-                //     },
-                //     "hello!",
-                // ),
-                // h(
-                //     "p",
-                //     {
-                //         class: ["blue"],
-                //     },
-                //     "this is your message: " + this.msg,
-                // ),
-                h(Foo, {
-                    count: 1,
-                    onBtnClick(...payload) {
-                        console.log("Foo event onBtnClick, e: ", payload);
+                h(
+                    Foo,
+                    {
+                        count: 1,
+                        onBtnClick(...payload) {
+                            console.log(`Foo event onBtnClick, e: ${payload}`);
+                        },
                     },
-                }),
+                    {
+                        header: (scope) =>
+                            h(
+                                "p",
+                                {},
+                                `header slot, scope: ${JSON.stringify(scope)}`,
+                            ),
+                        footer: () => [
+                            h("p", {}, "footer slot"),
+                            h("p", {}, "end footer slot"),
+                        ],
+                    },
+                ),
             ],
         );
     },

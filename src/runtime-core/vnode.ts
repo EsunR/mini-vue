@@ -24,12 +24,21 @@ export function createVNode(
         shapeFlag: getShapeFlag(type),
     };
 
+    // 是否是文本子节点
     if (typeof children === "string") {
         vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
-    } else if (Array.isArray(children)) {
+    }
+    // 是否是数组子节点
+    else if (Array.isArray(children)) {
         vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
-    } else {
-        vnode.shapeFlag |= ShapeFlags.STATEFUL_COMPONENT;
+    }
+
+    // VNode 是组件节点时
+    if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        // 判断是否是插槽子节点
+        if (typeof children === "object") {
+            vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN;
+        }
     }
 
     return vnode;
