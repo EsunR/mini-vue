@@ -4,7 +4,7 @@ import {
     createComponentInstance,
     setupComponent,
 } from "./component";
-import { VNode, createVNode } from "./vnode";
+import { Fragment, Text, VNode } from "./vnode";
 
 export function render(vnode: VNode, container: HTMLElement) {
     // patch
@@ -15,12 +15,33 @@ export function render(vnode: VNode, container: HTMLElement) {
  * 将 vnode 渲染到 container 中
  */
 function patch(vnode: VNode, container: HTMLElement) {
-    const { shapeFlag } = vnode;
-    if (shapeFlag & ShapeFlags.ELEMENT) {
-        processElement(vnode, container);
-    } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-        processComponent(vnode, container);
+    const { shapeFlag, type } = vnode;
+
+    switch (type) {
+        case Fragment:
+            processFragment(vnode, container);
+            break;
+        case Text:
+            processText(vnode, container);
+            break;
+        default:
+            if (shapeFlag & ShapeFlags.ELEMENT) {
+                processElement(vnode, container);
+            } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+                processComponent(vnode, container);
+            }
+            break;
     }
+}
+
+function processText(vnode: VNode, container: HTMLElement) {
+    const { children } = vnode;
+    const textNode = (vnode.el = document.createTextNode(children));
+    container.append(textNode);
+}
+
+function processFragment(vnode: VNode, container: HTMLElement) {
+    mountChildren(vnode, container);
 }
 
 function processElement(vnode: VNode, container: HTMLElement) {

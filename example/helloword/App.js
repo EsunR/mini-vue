@@ -1,10 +1,8 @@
-import { h } from "../../lib/mini-vue.esm.js";
+import { h, createTextVNode } from "../../lib/mini-vue.esm.js";
 import { Foo } from "./Foo.js";
 
-window.self = null;
 export const App = {
     render() {
-        window.self = this;
         return h(
             "div",
             {
@@ -29,6 +27,7 @@ export const App = {
                             ),
                         footer: () => [
                             h("p", {}, "footer slot"),
+                            createTextVNode("text vnode"),
                             h("p", {}, "end footer slot"),
                         ],
                     },

@@ -1,15 +1,18 @@
 import { ShapeFlags } from "../shared/ShapeFlags";
 import { Component } from "./component";
 
-export type VNodeType = string | Component;
+export type VNodeType = string | Component | Symbol;
 
 export interface VNode {
     type: VNodeType;
     props: Record<string, any>;
     children: any;
-    el: null | HTMLElement;
+    el: null | HTMLElement | Text;
     shapeFlag: number;
 }
+
+export const Fragment = Symbol("Fragment");
+export const Text = Symbol("Text");
 
 export function createVNode(
     type: any,
@@ -40,8 +43,11 @@ export function createVNode(
             vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN;
         }
     }
-
     return vnode;
+}
+
+export function createTextVNode(text: string) {
+    return createVNode(Text, {}, text);
 }
 
 export function getShapeFlag(type: any) {
