@@ -16,6 +16,8 @@ export interface ComponentInstance {
     props: VNode["props"];
     emit: Function;
     slots: Record<string, VNode["children"]>;
+    provides: Record<string, any>;
+    parent: ComponentInstance | null;
 }
 
 export interface Component {
@@ -26,7 +28,10 @@ export interface Component {
 /**
  * 根据虚拟节点创建组件实例
  */
-export function createComponentInstance(vnode: VNode) {
+export function createComponentInstance(
+    vnode: VNode,
+    parent: ComponentInstance | null,
+) {
     const instance: ComponentInstance = {
         vnode,
         type: vnode.type,
@@ -36,6 +41,8 @@ export function createComponentInstance(vnode: VNode) {
         props: {},
         emit: () => {},
         slots: {},
+        provides: parent?.provides ?? {},
+        parent,
     };
 
     // 处理 emit 调用
