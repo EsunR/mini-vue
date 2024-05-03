@@ -21,6 +21,7 @@ export interface ComponentInstance {
 }
 
 export interface Component {
+    name?: string;
     setup: (props: VNode["props"], ctx: { emit: Function }) => any;
     render: Function;
 }

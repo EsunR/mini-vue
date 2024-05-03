@@ -14,8 +14,11 @@ export interface VNode {
 export const Fragment = Symbol("Fragment");
 export const Text = Symbol("Text");
 
+/**
+ * 创建 VNode 对象
+*/
 export function createVNode(
-    type: any,
+    type: VNodeType,
     props?: VNode["props"],
     children?: VNode["children"],
 ) {
