@@ -3,4 +3,4 @@ export { renderSlots } from "./helpers/renderSlots";
 export { createTextVNode } from "./vnode";
 export { getCurrentInstance } from "./component";
 export { inject, provide } from "./apiInject";
-export { createRender, RendererOptions } from "./renderer";
+export { createRenderer, RendererOptions } from "./renderer";

@@ -1,4 +1,4 @@
-import { createRender, RendererOptions } from "../runtime-core";
+import { createRenderer, RendererOptions } from "../runtime-core";
 
 const createElement: RendererOptions["createElement"] = (type) => {
     return document.createElement(type) as HTMLElement;
@@ -18,7 +18,7 @@ const insert: RendererOptions["insert"] = (el, container) => {
     container.append(el);
 };
 
-const renderer = createRender({ createElement, patchProp, insert });
+const renderer = createRenderer({ createElement, patchProp, insert });
 
 export function createApp(rootComponent) {
     return renderer.createApp(rootComponent);

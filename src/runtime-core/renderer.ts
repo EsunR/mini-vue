@@ -19,7 +19,7 @@ export type Render = (
     parentComponent: ComponentInstance | null,
 ) => void;
 
-export function createRender(options: RendererOptions) {
+export function createRenderer(options: RendererOptions) {
     const { createElement, patchProp, insert } = options;
 
     const render: Render = (vnode, container, parentComponent) => {
