@@ -674,3 +674,106 @@ h(
 ```
 
 [29. 实现 Fragment 和 Text 类型节点](https://github.com/EsunR/mini-vue/commit/dff6b6f250fcf0e4d43fbd405a8cef5ff542c81e)
+
+### 3.10 实现 getCurrentInstance
+
+在 Vue 的 setup 函数中，可以使用 `getCurrentInstance` 来获取当前组件的实例。
+
+实现上，我们可以通过设置一个全局变量 `currentInstance`，在 `setupStatefulComponent` 初始化组件状态阶段，在执行组件 setup 函数前，将 `currentInstance` 设置为当前组件的实例，那么就可以在 setup 函数中通过 `getCurrentInstance` 来获取到当前组件的实例了：
+
+```ts
+let currentInstance: ComponentInstance | null = null;
+
+function setupStatefulComponent(instance: ComponentInstance) {
+    // ... ...
+    if (setup) {
+        currentInstance = instance;
+        const setupResult = setup(shallowReadonly(instance.props), {
+            emit: instance.emit,
+        });
+        currentInstance = null;
+        // ... ...
+    }
+}
+
+export function getCurrentInstance() {
+    return currentInstance;
+}
+```
+
+currentInstance 只能表示在执行 setup 函数时当前的组件实例，这也就是为什么 Vue3 中只能在 setup 函数中使用 getCurrentInstance 来获取当前组件实例，而不能在其他地方使用的原因。
+
+[30. 实现 getCurrentInstance](https://github.com/EsunR/mini-vue/commit/d068c7a26dedb4bd0cc4a420c4edbb74cbaba970)
+
+### 3.11 实现 provide / inject
+
+在 Vue3 中，我们可以使用 `provide` 和 `inject` 来实现组件之间的传值，`provide` 可以在父组件中提供一个值，然后在子组件中使用 `inject` 来获取这个值。
+
+实现原理上，是通过在组件实例上创建一个 `provides` 对象来存储当前组件中使用 `provide` 提供的值。然后在 `inject` 中通过 `getCurrentInstance` 来获取当前组件实例，并通过组件的 `parent` 属性来获取到父组件的 `provides` 值，从而实现了组件之间的传值。
+
+![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240503193045.png)
+
+但是，重点是如何实现值的层层传递，父组件如果没有子组件的 inject key，那么还可以继续想上查找祖父节点的 provides。此外，组件自身的 provides 中存在自身查找的 inject key，那么应该返回其自身 provides 中的 inject key：
+
+![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240503193754.png)
+
+在新创建组件实例时，其默认的 provides 就是父组件的 provides，这实现了 provides 的继承；此外还要求如果组件自身有查找的 inject key，那么应该返回自身的 provides 中的值，这就很类似原型链查找，因此我们可以使用 `Object.create` 来将其父组件的 provides 以原型链的方式连接到当前组件即可，核心代码如下：
+
+```ts
+import { getCurrentInstance } from "./component";
+
+export function provide(key: string, value: any) {
+    const currentInstance = getCurrentInstance();
+
+    if (currentInstance) {
+        let { provides } = currentInstance;
+        const parentProvides = currentInstance.parent?.provides;
+
+        // 当前组件的 provides 与父组件的 provides 相同时，说明是组件内首次使用 provide，要对其进行初始化
+        if (provides === parentProvides) {
+            provides = currentInstance.provides = Object.create(
+                parentProvides || {},
+            );
+        }
+        provides[key] = value;
+    }
+}
+
+export function inject(key: string, defaultValue: any) {
+    const currentInstance = getCurrentInstance();
+    if (currentInstance) {
+        const parentProvides = currentInstance.parent?.provides ?? {};
+
+        if (key in parentProvides) {
+            return parentProvides?.[key];
+        } else if (defaultValue) {
+            return typeof defaultValue === "function"
+                ? defaultValue()
+                : defaultValue;
+        }
+    }
+}
+```
+
+[31. 实现 provide/inject](https://github.com/EsunR/mini-vue/commit/d1cbebd89e0177cc2df10c43b986fd8fbcd70c4a)
+
+### 3.12 实现自定义渲染器
+
+Vue3 中提供了一个高级 API `createRenderer` API，用户通过这个 API 代替原有的 `createApp` 方法，可以创建一个自定义的渲染器，比如将 HTML 渲染器替换为 Canvas 渲染器。其核心实现是将 `runtime-core` 中的 `render` 模块进行了可配置化，举例来说：
+
+- 原有的代码中，创建元素使用 `document.createElement(vnode.type)`，那么我们可以将其抽离为一个通用的`createElement` 方法，可以让用户自主实现创建元素的方法；
+- 原有的代码中，处理元素属性使用 `el.setAttribute(key, val)`，那么我们可以将其抽离为一个通用的 `patchProps` 方法，可以让用户自主实现处理元素属性的方法；
+- 原有的代码中，将元素挂载到 container 中使用 `container.appendChild(el)`，那么我们可以将其抽离为一个通用的 `insert` 方法，可以让用户自主实现挂载元素的方法；
+- ... ...
+
+按照这个思路，我们可以将创建 DOM 元素的方法都抽离为通用函数，函数的具体实现由使用方决定。
+
+为了实现让适用方传入自定义的渲染器，`runtime-core` 的 `render` 模块需要改写为一个 `createRenderer` 方法，通过闭包的方式来传递渲染方法的实现。`runtime-dom` 就是在 HTML DOM 上对 `createRenderer` 方法的一个实现。
+
+具体改造代码如下：
+
+[32. 实现自定义渲染器（上）](https://github.com/EsunR/mini-vue/commit/cae053f54d0e8c4df53f946b7d28a0b7b7504a4a)
+
+使用自定义渲染器的示例如下：
+
+[32. 实现自定义渲染器（下）](https://github.com/EsunR/mini-vue/commit/1c49555bec149838390abc5620bada85dc9944b5)
