@@ -5,6 +5,8 @@ import { PublicInstanceProxyHandlers } from "./componentPublicInstance";
 import { initSlots } from "./componentSlots";
 import { VNode } from "./vnode";
 
+let currentInstance: ComponentInstance | null = null;
+
 export interface ComponentInstance {
     vnode: VNode;
     type: VNode["type"];
@@ -67,9 +69,12 @@ function setupStatefulComponent(instance: ComponentInstance) {
     const { setup } = Component as Component;
 
     if (setup) {
+        setCurrentInstance(instance);
         const setupResult = setup(shallowReadonly(instance.props), {
             emit: instance.emit,
         });
+        setCurrentInstance(null);
+
         handleSetupResult(instance, setupResult);
     }
 }
@@ -96,4 +101,12 @@ function handleSetupResult(
 function finishComponentSetup(instance: ComponentInstance) {
     const Component = instance.type as Component;
     instance.render = Component.render;
+}
+
+export function getCurrentInstance() {
+    return currentInstance;
+}
+
+export function setCurrentInstance(instance: ComponentInstance | null) {
+    currentInstance = instance;
 }

@@ -1,7 +1,11 @@
-import { h, renderSlots } from "../../lib/mini-vue.esm.js";
+import { h, renderSlots, getCurrentInstance } from "../../lib/mini-vue.esm.js";
 
 export const Foo = {
+    name: 'Foo',
     setup(props, { emit }) {
+        const instance = getCurrentInstance();
+        console.log("🚀 ~ setup ~ instance:", instance);
+
         const onBtnClick = () => {
             emit("btn-click", { count: props.count });
         };
