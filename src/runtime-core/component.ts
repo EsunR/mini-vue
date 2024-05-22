@@ -1,8 +1,10 @@
+import { proxyRefs } from "../reactivity";
 import { shallowReadonly } from "../reactivity/reactive";
 import { emit } from "./componentEmit";
 import { initProps } from "./componentProps";
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance";
 import { initSlots } from "./componentSlots";
+import { h } from "./h";
 import { VNode } from "./vnode";
 
 let currentInstance: ComponentInstance | null = null;
@@ -10,20 +12,35 @@ let currentInstance: ComponentInstance | null = null;
 export interface ComponentInstance {
     vnode: VNode;
     type: VNode["type"];
+    /**
+     * 属性代理，将组件的 props 和 setupState 都代理到该对象上
+     * 在组件执行 render 函数时候作为上下文 this 调用
+     */
     proxy: Record<string, any>;
+    /** setup 函数的返回值 */
     setupState: Record<string, any>;
-    render: Function;
+    /** 组件的渲染函数 */
+    render: Component["render"];
+    /** 组件的 props */
     props: VNode["props"];
+    /** 组件的 emit 方法 */
     emit: Function;
+    /** 组件上的插槽 */
     slots: Record<string, VNode["children"]>;
+    /** 存放在当前组件上调用 provide 存放的对象 */
     provides: Record<string, any>;
+    /** 父组件 */
     parent: ComponentInstance | null;
+    /** 当前组件是否已经挂载 */
+    isMounted: boolean;
+    /** 存放上次更新后的 VNode */
+    subTree: VNode | null;
 }
 
 export interface Component {
     name?: string;
     setup: (props: VNode["props"], ctx: { emit: Function }) => any;
-    render: Function;
+    render: () => VNode;
 }
 
 /**
@@ -38,12 +55,14 @@ export function createComponentInstance(
         type: vnode.type,
         proxy: {},
         setupState: {},
-        render: () => {},
         props: {},
+        render: () => h("div", {}, "TODO: set default render"),
         emit: () => {},
         slots: {},
         provides: parent?.provides ?? {},
         parent,
+        isMounted: false,
+        subTree: null,
     };
 
     // 处理 emit 调用
@@ -95,7 +114,7 @@ function handleSetupResult(
     setupResult: ComponentInstance["setupState"],
 ) {
     if (typeof setupResult === "object") {
-        instance.setupState = setupResult;
+        instance.setupState = proxyRefs(setupResult);
     } else if (typeof setupResult === "function") {
         // TODO: function result
     }
