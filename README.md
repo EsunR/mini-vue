@@ -777,3 +777,64 @@ Vue3 中提供了一个高级 API `createRenderer` API，用户通过这个 API 
 使用自定义渲染器的示例如下：
 
 [32. 实现自定义渲染器（下）](https://github.com/EsunR/mini-vue/commit/1c49555bec149838390abc5620bada85dc9944b5)
+
+### 3.13 更新 element
+
+##### 流程的搭建
+
+我们在前面已经实现了 `ref` 函数，可以创建一个响应式对象，当 `ref` 对象的值发生改变后，就可以触发对应的 Effect。
+
+`setupRenderEffect` 函数负责了组件类型 VNode 的渲染，我们可以在这个函数中创建一个 `effect`，当在该函数中执行了组件的 render 函数时，就会进行依赖收集，这样当 `ref` 对象触发更新时，就会重新执行 `setupRenderEffect` 函数，从而实现了组件的更新。
+
+为了完善更新流程，我们还要针对 `setupRenderEffect` 函数做如下变更：
+
+- 组件的挂载逻辑和更新逻辑应该是分开的，我们可以为组件实例上挂载一个 `isMounted` 属性来进行标记。
+- 由于后面更新节点肯定要拿新节点和旧节点进行对比，因此创建一个 `subTree` 属性来存储上一次渲染的子树。
+
+[函数变更](https://github.com/EsunR/mini-vue/commit/31fbcc31337ed255c9776482b0bb67edbbeb3d01?diff=split&w=0#diff-3b10a4c6951bccbaa68fd42a9c11b9512894fdcdebb1f8f6a3af9b8cd4e86bb6R179)
+
+此外，我们还要变更 `patch` 函数，目前该函数仅支持挂载节点，并不支持更新节点，我们为其加一个参数，用来表示旧节点，然后再传递到不通的 process 函数中，让不通类型的 VNode 处理函数决定如何进行更新，如在 `processElement` 函数中，由于我们传入了旧节点，就可以为其增加一个 `patchElement` 函数来处理替换逻辑：
+
+```ts
+function processElement(
+    n1: VNode | null,
+    n2: VNode,
+    container: HTMLElement,
+    parentComponent: ComponentInstance | null,
+) {
+    // n1 表示旧节点，如果没有就执行挂载逻辑，否则执行更新逻辑
+    if (!n1) {
+        mountElement(n2, container, parentComponent);
+    } else {
+        // 新增函数，下一章节进行具体实现，其他 process 函数类似
+        patchElement(n1, n2, container);
+    }
+}
+```
+
+[33. 更新 element 流程搭建](https://github.com/EsunR/mini-vue/commit/31fbcc31337ed255c9776482b0bb67edbbeb3d01)
+
+##### props 更新
+
+在更新节点内容前，我们要先处理 element props 的更新，我们创建一个 `patchProps` 方法用于处理这一部分的逻辑：
+
+```diff
+ function patchElement(n1: VNode, n2: VNode, container: HTMLElement) {
+     const oldProps = n1.props || EMPTY_OBJ;
+     const newProps = n2.props || EMPTY_OBJ;
+ 
+     const el = (n2.el = n1.el as HTMLElement);
+ 
+     // 1. 更新节点属性
++   patchProps(el, oldProps, newProps);
+ }
+```
+
+在该方法中我们主要处理以下三种情况：
+
+1. 新的 props 中添加了新的 prop：对旧的 prop 进行新增；
+2. 新的 props 中修改了旧 props 中的属性值：对旧的 prop 进行替换；
+3. 新的 props 中将旧的 props 值设置为了 `undefined` 或 `null`：对旧的 prop 进行删除；
+4. 新的 props 中删除了某个旧的 prop：对旧的 prop 进行删除；
+
+[33. 更新 element 的 props](https://github.com/EsunR/mini-vue/commit/44dd71c95fd48fa199e3200e3645e250846208cc)
