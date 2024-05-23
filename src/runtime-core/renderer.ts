@@ -1,4 +1,5 @@
 import { effect } from "../reactivity/effect";
+import { EMPTY_OBJ } from "../shared";
 import { ShapeFlags } from "../shared/ShapeFlags";
 import {
     ComponentInstance,
@@ -10,7 +11,12 @@ import { Fragment, Text, VNode } from "./vnode";
 
 export interface RendererOptions {
     createElement: (type: string) => HTMLElement;
-    patchProp: (el: HTMLElement, key: string, value: any) => void;
+    patchProp: (
+        el: HTMLElement,
+        key: string,
+        prevVal: any,
+        nextVal: any,
+    ) => void;
     insert: (el: HTMLElement, container: HTMLElement) => void;
 }
 
@@ -110,7 +116,7 @@ export function createRenderer(options: RendererOptions) {
         const { props } = vnode;
         for (const key in props) {
             const val = props[key];
-            patchProp(el, key, val);
+            patchProp(el, key, null, val);
         }
 
         // 挂载
@@ -123,9 +129,42 @@ export function createRenderer(options: RendererOptions) {
      * 从 DOM 中找到旧节点，替换为新节点
      */
     function patchElement(n1: VNode, n2: VNode, container: HTMLElement) {
-        // TODO
-        console.log("old vnode", n1);
-        console.log("new vnode", n2);
+        const oldProps = n1.props || EMPTY_OBJ;
+        const newProps = n2.props || EMPTY_OBJ;
+
+        const el = (n2.el = n1.el as HTMLElement);
+
+        // 1. 更新节点属性
+        patchProps(el, oldProps, newProps);
+    }
+
+    /**
+     * 更新节点的属性
+     */
+    function patchProps(
+        el: HTMLElement,
+        oldProps: VNode["props"],
+        newProps: VNode["props"],
+    ) {
+        if (oldProps !== newProps) {
+            // 处理 newProps 更新了某些属性
+            for (const key in newProps) {
+                const prevProp = oldProps[key];
+                const nextProp = newProps[key];
+                if (prevProp !== nextProp) {
+                    patchProp(el, key, prevProp, nextProp);
+                }
+            }
+
+            // 处理 newProps 中移除了某些属性，需要移除 DOM 上的属性
+            if (oldProps !== EMPTY_OBJ) {
+                for (const key in oldProps) {
+                    if (!(key in newProps)) {
+                        patchProp(document.body, key, oldProps, null);
+                    }
+                }
+            }
+        }
     }
     // ================= Element 节点处理逻辑 | End ====================
 
