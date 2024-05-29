@@ -826,7 +826,7 @@ function processElement(
      const el = (n2.el = n1.el as HTMLElement);
  
      // 1. 更新节点属性
-+   patchProps(el, oldProps, newProps);
++    patchProps(el, oldProps, newProps);
  }
 ```
 
