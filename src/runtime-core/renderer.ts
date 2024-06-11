@@ -18,6 +18,8 @@ export interface RendererOptions {
         nextVal: any,
     ) => void;
     insert: (el: HTMLElement, container: HTMLElement) => void;
+    remove: (el: HTMLElement) => void;
+    setElementText: (el: HTMLElement, text: string) => void;
 }
 
 export type Render = (
@@ -30,7 +32,13 @@ export type Render = (
  * 供渲染器调用，传入自定义渲染 API，然后生成一个 renderer 对象
  */
 export function createRenderer(options: RendererOptions) {
-    const { createElement, patchProp, insert } = options;
+    const {
+        createElement,
+        patchProp,
+        insert,
+        remove: hostRemove,
+        setElementText: hostSetElementText,
+    } = options;
 
     const render: Render = (vnode, container, parentComponent) => {
         // patch
@@ -39,6 +47,10 @@ export function createRenderer(options: RendererOptions) {
 
     /**
      * 将 vnode 渲染到 container 中
+     * @param n1 旧的 vnode
+     * @param n2 新的 vnode
+     * @param container 组件的根 DOM 节点
+     * @param parentComponent 父组件
      */
     function patch(
         n1: VNode | null,
@@ -80,7 +92,7 @@ export function createRenderer(options: RendererOptions) {
         container: HTMLElement,
         parentComponent: ComponentInstance | null,
     ) {
-        mountChildren(n2, container, parentComponent);
+        mountChildren(n2.children, container, parentComponent);
     }
     // ================= Fragment 节点处理逻辑 | End ====================
 
@@ -94,7 +106,7 @@ export function createRenderer(options: RendererOptions) {
         if (!n1) {
             mountElement(n2, container, parentComponent);
         } else {
-            patchElement(n1, n2, container);
+            patchElement(n1, n2, container, parentComponent);
         }
     }
 
@@ -106,14 +118,19 @@ export function createRenderer(options: RendererOptions) {
         container: HTMLElement,
         parentComponent: ComponentInstance | null,
     ) {
+        const { children, shapeFlag, props } = vnode;
+
         // 创建元素
         const el = (vnode.el = createElement(vnode.type as string));
 
         // 挂载子节点
-        mountChildren(vnode, el, parentComponent);
+        if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+            hostSetElementText(el, children as string);
+        } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+            mountChildren(vnode.children, el, parentComponent);
+        }
 
         // 处理属性
-        const { props } = vnode;
         for (const key in props) {
             const val = props[key];
             patchProp(el, key, null, val);
@@ -128,14 +145,71 @@ export function createRenderer(options: RendererOptions) {
      * 更新 Element 类型的 vnode
      * 从 DOM 中找到旧节点，替换为新节点
      */
-    function patchElement(n1: VNode, n2: VNode, container: HTMLElement) {
+    function patchElement(
+        n1: VNode,
+        n2: VNode,
+        container: HTMLElement,
+        parentComponent: ComponentInstance | null,
+    ) {
         const oldProps = n1.props || EMPTY_OBJ;
         const newProps = n2.props || EMPTY_OBJ;
 
         const el = (n2.el = n1.el as HTMLElement);
 
+        // 0. 更新子节点
+        patchChildren(n1, n2, el, parentComponent);
         // 1. 更新节点属性
         patchProps(el, oldProps, newProps);
+    }
+
+    /**
+     * 更新子节点
+     * @param n1 旧的 vnode
+     * @param n2 新的 vnode
+     * @param container 新旧节点的父 DOM 节点（区别于组件的 container）
+     */
+    function patchChildren(
+        n1: VNode,
+        n2: VNode,
+        container: HTMLElement,
+        parentComponent: ComponentInstance | null,
+    ) {
+        const prevShapeFlag = n1.shapeFlag;
+        const shapeFlag = n2.shapeFlag;
+
+        const c1 = n1.children;
+        const c2 = n2.children;
+
+        // 新节点是文本节点
+        if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+            // 旧节点是数组节点
+            if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+                // 移除旧节点的所有 children
+                unmountChildren(n1.children);
+            }
+            // 新旧节点都是文本节点时，对比文本内容后再决定是否更新
+            if (c1 !== c2) {
+                hostSetElementText(container, c2);
+            }
+        }
+        // 新节点是数组节点
+        else {
+            // 旧节点是文本节点
+            if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+                hostSetElementText(container, "");
+                mountChildren(c2, container, parentComponent);
+            }
+        }
+    }
+
+    /**
+     * 移除传入的节点
+     */
+    function unmountChildren(children: VNode["children"]) {
+        for (let i = 0; i < children.length; i++) {
+            const el = children[i].el;
+            hostRemove(el);
+        }
     }
 
     /**
@@ -172,20 +246,13 @@ export function createRenderer(options: RendererOptions) {
      * 将 vnode 对象的 children 挂载到 DOM container 中
      */
     function mountChildren(
-        vnode: VNode,
+        children: any[] /** VNode['children'] */,
         container: HTMLElement,
         parentComponent: ComponentInstance | null,
     ) {
-        const { shapeFlag, children } = vnode;
-        if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
-            container.textContent = children;
-        } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-            children.forEach((vnodeChild: VNode) => {
-                patch(null, vnodeChild, container, parentComponent);
-            });
-        } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-            patch(null, children, container, parentComponent);
-        }
+        children.forEach((vnodeChild: VNode) => {
+            patch(null, vnodeChild, container, parentComponent);
+        });
     }
 
     // ================= Component 节点处理逻辑 | Start ====================

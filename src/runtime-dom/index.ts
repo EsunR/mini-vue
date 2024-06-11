@@ -26,7 +26,24 @@ const insert: RendererOptions["insert"] = (el, container) => {
     container.append(el);
 };
 
-const renderer = createRenderer({ createElement, patchProp, insert });
+const remove: RendererOptions["remove"] = (el) => {
+    const parent = el.parentNode;
+    if (parent) {
+        parent.removeChild(el);
+    }
+};
+
+const setElementText: RendererOptions["setElementText"] = (el, text) => {
+    el.textContent = text;
+};
+
+const renderer = createRenderer({
+    createElement,
+    patchProp,
+    insert,
+    remove,
+    setElementText,
+});
 
 export function createApp(rootComponent) {
     return renderer.createApp(rootComponent);
