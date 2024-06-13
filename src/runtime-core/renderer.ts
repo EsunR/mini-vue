@@ -33,9 +33,9 @@ export type Render = (
  */
 export function createRenderer(options: RendererOptions) {
     const {
-        createElement,
-        patchProp,
-        insert,
+        createElement: hostCreateElement,
+        patchProp: hostPatchProp,
+        insert: hostInsert,
         remove: hostRemove,
         setElementText: hostSetElementText,
     } = options;
@@ -121,7 +121,7 @@ export function createRenderer(options: RendererOptions) {
         const { children, shapeFlag, props } = vnode;
 
         // 创建元素
-        const el = (vnode.el = createElement(vnode.type as string));
+        const el = (vnode.el = hostCreateElement(vnode.type as string));
 
         // 挂载子节点
         if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
@@ -133,12 +133,12 @@ export function createRenderer(options: RendererOptions) {
         // 处理属性
         for (const key in props) {
             const val = props[key];
-            patchProp(el, key, null, val);
+            hostPatchProp(el, key, null, val);
         }
 
         // 挂载
         // container.append(el);
-        insert(el, container);
+        hostInsert(el, container);
     }
 
     /**
@@ -226,7 +226,7 @@ export function createRenderer(options: RendererOptions) {
                 const prevProp = oldProps[key];
                 const nextProp = newProps[key];
                 if (prevProp !== nextProp) {
-                    patchProp(el, key, prevProp, nextProp);
+                    hostPatchProp(el, key, prevProp, nextProp);
                 }
             }
 
@@ -234,7 +234,7 @@ export function createRenderer(options: RendererOptions) {
             if (oldProps !== EMPTY_OBJ) {
                 for (const key in oldProps) {
                     if (!(key in newProps)) {
-                        patchProp(document.body, key, oldProps, null);
+                        hostPatchProp(document.body, key, oldProps, null);
                     }
                 }
             }
