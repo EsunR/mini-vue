@@ -780,7 +780,7 @@ Vue3 中提供了一个高级 API `createRenderer` API，用户通过这个 API 
 
 ### 3.13 更新 element
 
-##### 流程的搭建
+#### 流程的搭建
 
 我们在前面已经实现了 `ref` 函数，可以创建一个响应式对象，当 `ref` 对象的值发生改变后，就可以触发对应的 Effect。
 
@@ -793,7 +793,7 @@ Vue3 中提供了一个高级 API `createRenderer` API，用户通过这个 API 
 
 [函数变更](https://github.com/EsunR/mini-vue/commit/31fbcc31337ed255c9776482b0bb67edbbeb3d01?diff=split&w=0#diff-3b10a4c6951bccbaa68fd42a9c11b9512894fdcdebb1f8f6a3af9b8cd4e86bb6R179)
 
-此外，我们还要变更 `patch` 函数，目前该函数仅支持挂载节点，并不支持更新节点，我们为其加一个参数，用来表示旧节点，然后再传递到不通的 process 函数中，让不通类型的 VNode 处理函数决定如何进行更新，如在 `processElement` 函数中，由于我们传入了旧节点，就可以为其增加一个 `patchElement` 函数来处理替换逻辑：
+此外，我们还要变更 `patch` 函数，目前该函数仅支持挂载节点，并不支持更新节点，我们为其加一个参数，用来表示旧节点，然后再传递到不同的 process 函数中，让不同类型的 VNode 处理函数决定如何进行更新，如在 `processElement` 函数中，由于我们传入了旧节点，就可以为其增加一个 `patchElement` 函数来处理替换逻辑：
 
 ```ts
 function processElement(
@@ -814,7 +814,7 @@ function processElement(
 
 [33. 更新 element 流程搭建](https://github.com/EsunR/mini-vue/commit/31fbcc31337ed255c9776482b0bb67edbbeb3d01)
 
-##### props 更新
+#### props 更新
 
 在更新节点内容前，我们要先处理 element props 的更新，我们创建一个 `patchProps` 方法用于处理这一部分的逻辑：
 
@@ -838,3 +838,39 @@ function processElement(
 4. 新的 props 中删除了某个旧的 prop：对旧的 prop 进行删除；
 
 [33. 更新 element 的 props](https://github.com/EsunR/mini-vue/commit/44dd71c95fd48fa199e3200e3645e250846208cc)
+
+#### Children 的更新
+
+前面我们已经讲了如何更新 Element 类型节点的 Props，那么这一节我们继续深入看看 Vue 是如何更新 Element 节点的 Children 的。
+
+首先，我们更新子节点的时机是在 `pathElement` 函数的 `patchProps` 执行前，我们为其添加 `patchChildren` 方法来用于更新子节点：
+
+```diff
+ function patchElement(
+     n1: VNode,
+     n2: VNode,
+     container: HTMLElement,
+     parentComponent: ComponentInstance | null,
+    ) {
+     const oldProps = n1.props || EMPTY_OBJ;
+     const newProps = n2.props || EMPTY_OBJ;
+ 
+     const el = (n2.el = n1.el as HTMLElement);
++    // n1 代表旧节点，n2 代表新节点
++    patchChildren(n1, n2, el, parentComponent);
+     patchProps(el, oldProps, newProps);
+ }
+```
+
+在 `patchChildren` 方法中，我们需要对比新旧节点的子节点（children），然后根据不同的情况来执行不同的逻辑，其存在以下几种可能：
+
+- 新节点是文本节点，旧节点是数组节点：移除所有的旧节点，替换新的文本节点；
+- 新节点是文本节点，旧节点是文本节点：替换文本节点；
+- 新节点是数组节点，旧节点是文本节点：移除旧节点，替换新的数组节点；
+- 新节点是数组节点，旧节点是数组节点：进行 Diff 算法（下一章节细讲）；
+
+图示如下：
+
+![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240614142450.png)
+
+[35. 更新 element 的 children - 序章](https://github.com/EsunR/mini-vue/commit/ed5c2e1bd6ac9f291ddf0e9d6a1f996623b7a727)
