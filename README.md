@@ -713,11 +713,11 @@ currentInstance 只能表示在执行 setup 函数时当前的组件实例，这
 
 ![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240503193045.png)
 
-但是，重点是如何实现值的层层传递，父组件如果没有子组件的 inject key，那么还可以继续想上查找祖父节点的 provides。此外，组件自身的 provides 中存在自身查找的 inject key，那么应该返回其自身 provides 中的 inject key：
+此外，inject 还遵循就近原则，只获取离当前组件最近的 provide 值：
 
-![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/20240503193754.png)
+![](https://esunr-image-bed.oss-cn-beijing.aliyuncs.com/picgo/202412201434499.png)
 
-在新创建组件实例时，其默认的 provides 就是父组件的 provides，这实现了 provides 的继承；此外还要求如果组件自身有查找的 inject key，那么应该返回自身的 provides 中的值，这就很类似原型链查找，因此我们可以使用 `Object.create` 来将其父组件的 provides 以原型链的方式连接到当前组件即可，核心代码如下：
+为了实现 provides 的继承，在新创建组件实例时，其默认的 provides 就是父组件的 provides。此外还要保证如果当前组件使用 `provide` 提供了值，当前组件的 provides 中就要存下这个值。这就很类似原型链查找，因此我们可以使用 `Object.create` 来将其父组件的 provides 以原型链的方式连接到当前组件即可，核心代码如下：
 
 ```ts
 import { getCurrentInstance } from "./component";
